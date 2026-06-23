@@ -254,6 +254,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     <p id="hdr-sub">Mridul Jindal, Advocate</p>
     <span class="streak-badge" id="streak-badge">🔥 0 day streak</span>
   </div>
+  <button class="logout-btn" onclick="openExportModal()" style="margin-right:6px">Export</button>
   <button class="logout-btn" onclick="openImportModal()" style="margin-right:6px">Import</button>
   <button class="logout-btn" onclick="doLogout()">Logout</button>
 </div>
@@ -375,6 +376,21 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 </div>
 </div><!-- /app-content -->
 
+<!-- EXPORT MODAL -->
+<div id="export-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:2000;align-items:center;justify-content:center;padding:20px">
+  <div style="background:#fff;border-radius:16px;padding:24px;max-width:500px;width:100%;max-height:85vh;overflow-y:auto">
+    <div style="font-size:17px;font-weight:700;color:var(--dark);margin-bottom:6px">📦 Export Your Data</div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:14px;line-height:1.5">Copy this data and paste it wherever you want to import it (e.g. the chat widget's Import feature).</div>
+    <div id="export-stats" style="font-size:12px;color:var(--text2);margin-bottom:10px"></div>
+    <textarea id="export-textarea" readonly style="width:100%;min-height:160px;font-family:monospace;font-size:11px;padding:10px;border:1px solid var(--border);border-radius:8px;margin-bottom:10px"></textarea>
+    <div id="export-status" style="font-size:13px;text-align:center;margin-bottom:10px;min-height:18px;color:#1D9E75;font-weight:500"></div>
+    <div style="display:flex;gap:10px">
+      <button onclick="closeExportModal()" style="flex:1;padding:11px;border-radius:8px;border:1px solid var(--border);background:#fff;font-size:14px;cursor:pointer;color:var(--text2)">Close</button>
+      <button onclick="copyExportData()" style="flex:2;padding:11px;border-radius:8px;border:none;background:var(--dark);color:#fff;font-size:14px;font-weight:600;cursor:pointer">📋 Copy All Data</button>
+    </div>
+  </div>
+</div>
+
 <!-- IMPORT MODAL -->
 <div id="import-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:2000;align-items:center;justify-content:center;padding:20px">
   <div style="background:#fff;border-radius:16px;padding:24px;max-width:500px;width:100%;max-height:85vh;overflow-y:auto">
@@ -423,6 +439,27 @@ async function doLogin(){
 function doLogout(){
   const { auth, signOut } = window.__firebase;
   signOut(auth);
+}
+
+function openExportModal(){
+  document.getElementById('export-modal').style.display = 'flex';
+  document.getElementById('export-status').textContent = '';
+  const keys = Object.keys(ALL_DATA_CACHE);
+  const sorted = keys.sort();
+  document.getElementById('export-stats').textContent = keys.length
+    ? `${keys.length} days found · ${sorted[0]} to ${sorted[sorted.length-1]}`
+    : 'No data found in your cloud account yet.';
+  document.getElementById('export-textarea').value = JSON.stringify(ALL_DATA_CACHE);
+}
+function closeExportModal(){
+  document.getElementById('export-modal').style.display = 'none';
+}
+function copyExportData(){
+  const ta = document.getElementById('export-textarea');
+  ta.select();
+  document.execCommand('copy');
+  navigator.clipboard?.writeText(ta.value).catch(()=>{});
+  document.getElementById('export-status').textContent = '✓ Copied! Paste this into the Import box wherever you need it.';
 }
 
 function openImportModal(){
@@ -995,6 +1032,7 @@ window.addMiscTaskRow=addMiscTaskRow; window.addOtherTaskRow=addOtherTaskRow;
 window.addPlatform=addPlatform; window.setDone=setDone; window.setStar=setStar;
 window.doLogout=doLogout; window.loadDay=loadDay;
 window.openImportModal=openImportModal; window.closeImportModal=closeImportModal; window.runImport=runImport;
+window.openExportModal=openExportModal; window.closeExportModal=closeExportModal; window.copyExportData=copyExportData;
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
