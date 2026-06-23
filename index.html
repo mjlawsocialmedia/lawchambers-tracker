@@ -27,6 +27,7 @@
   const db = getFirestore(app);
 
   window.__firebase = { auth, db, signInWithEmailAndPassword, onAuthStateChanged, signOut, doc, setDoc, getDoc, collection, getDocs };
+  window.dispatchEvent(new Event('firebase-ready'));
 </script>
 <style>
 :root{
@@ -410,7 +411,28 @@ document.getElementById('login-btn').addEventListener('click', doLogin);
 document.getElementById('login-password').addEventListener('keypress', (e)=>{ if(e.key==='Enter') doLogin(); });
 document.getElementById('login-email').addEventListener('keypress', (e)=>{ if(e.key==='Enter') doLogin(); });
 
-async function loadAllDataFromCloud(){
+function initFirebaseAuthListener(){
+  window.__firebase.onAuthStateChanged(window.__firebase.auth, async (user) => {
+    if(user){
+      CURRENT_USER = user;
+      document.getElementById('login-screen').style.display = 'none';
+      document.getElementById('app-content').style.display = 'block';
+      await loadAllDataFromCloud();
+      initTrackerUI();
+    } else {
+      CURRENT_USER = null;
+      DATA_LOADED = false;
+      document.getElementById('login-screen').style.display = 'flex';
+      document.getElementById('app-content').style.display = 'none';
+    }
+  });
+}
+
+if(window.__firebase){
+  initFirebaseAuthListener();
+} else {
+  window.addEventListener('firebase-ready', initFirebaseAuthListener, { once: true });
+}
   const { db, collection, getDocs } = window.__firebase;
   showSyncStatus('syncing');
   try{
@@ -439,21 +461,6 @@ async function saveDayToCloud(ds, obj){
     showSyncStatus('error');
   }
 }
-
-window.__firebase.onAuthStateChanged(window.__firebase.auth, async (user) => {
-  if(user){
-    CURRENT_USER = user;
-    document.getElementById('login-screen').style.display = 'none';
-    document.getElementById('app-content').style.display = 'block';
-    await loadAllDataFromCloud();
-    initTrackerUI();
-  } else {
-    CURRENT_USER = null;
-    DATA_LOADED = false;
-    document.getElementById('login-screen').style.display = 'flex';
-    document.getElementById('app-content').style.display = 'none';
-  }
-});
 
 // ═══════════ TRACKER APP LOGIC ═══════════
 const DEFAULT_PLATFORMS=['LinkedIn','Quora','Instagram','Facebook','YouTube','X (Twitter)'];
