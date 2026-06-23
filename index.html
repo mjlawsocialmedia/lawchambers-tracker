@@ -433,6 +433,8 @@ if(window.__firebase){
 } else {
   window.addEventListener('firebase-ready', initFirebaseAuthListener, { once: true });
 }
+
+async function loadAllDataFromCloud(){
   const { db, collection, getDocs } = window.__firebase;
   showSyncStatus('syncing');
   try{
