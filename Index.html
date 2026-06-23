@@ -1,0 +1,925 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="LC Tracker">
+<meta name="theme-color" content="#1A2E44">
+<title>Law Chambers — Productivity Tracker</title>
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+  import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+  import { getFirestore, doc, setDoc, getDoc, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyAbR_Tt-QmxjRxE2NhZBSrA65l0NZSNDbA",
+    authDomain: "lawchambers-tracker-15d73.firebaseapp.com",
+    projectId: "lawchambers-tracker-15d73",
+    storageBucket: "lawchambers-tracker-15d73.firebasestorage.app",
+    messagingSenderId: "340606281033",
+    appId: "1:340606281033:web:5bf9596630f9031fc9a698"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getFirestore(app);
+
+  window.__firebase = { auth, db, signInWithEmailAndPassword, onAuthStateChanged, signOut, doc, setDoc, getDoc, collection, getDocs };
+</script>
+<style>
+:root{
+  --bg:#F7F8FA;--card:#FFFFFF;--border:#E2E8F0;--text:#1A2E44;--text2:#64748B;
+  --green:#1D9E75;--green-light:#E8F8F0;--orange:#E67E22;--orange-light:#FEF5EC;
+  --blue:#2980B9;--blue-light:#EBF5FB;--purple:#8E44AD;--purple-light:#F5EEF8;
+  --dark:#1A2E44;--radius:12px;--shadow:0 1px 3px rgba(0,0,0,0.08);
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding-bottom:80px}
+
+/* LOGIN SCREEN */
+#login-screen{position:fixed;inset:0;background:var(--dark);display:flex;align-items:center;justify-content:center;z-index:1000;padding:20px}
+.login-box{background:#fff;border-radius:16px;padding:32px 24px;max-width:380px;width:100%;box-shadow:0 8px 30px rgba(0,0,0,0.3)}
+.login-logo{text-align:center;font-size:40px;margin-bottom:8px}
+.login-title{text-align:center;font-size:18px;font-weight:700;color:var(--dark);margin-bottom:4px}
+.login-sub{text-align:center;font-size:13px;color:var(--text2);margin-bottom:24px}
+.login-field{margin-bottom:14px}
+.login-field label{display:block;font-size:12px;color:var(--text2);margin-bottom:5px;font-weight:500}
+.login-field input{width:100%;padding:12px 14px;border:1px solid var(--border);border-radius:10px;font-size:15px;color:var(--text)}
+.login-btn{width:100%;padding:13px;border-radius:10px;border:none;background:var(--dark);color:#fff;font-size:15px;font-weight:600;cursor:pointer;margin-top:6px}
+.login-btn:active{opacity:0.85}
+.login-btn:disabled{opacity:0.5}
+.login-error{color:#DC2626;font-size:12px;text-align:center;margin-top:10px;min-height:16px}
+.sync-status{position:fixed;top:8px;right:8px;font-size:10px;padding:4px 10px;border-radius:20px;z-index:999;font-weight:600}
+.sync-status.synced{background:var(--green-light);color:var(--green)}
+.sync-status.syncing{background:#FEF9E7;color:#B7950B}
+.sync-status.error{background:#FDEDEC;color:#C0392B}
+
+/* Header */
+.app-header{background:var(--dark);padding:16px 16px 12px;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,0.2);display:flex;justify-content:space-between;align-items:flex-start}
+.app-header h1{color:#fff;font-size:15px;font-weight:600;letter-spacing:0.3px}
+.app-header p{color:rgba(255,255,255,0.6);font-size:12px;margin-top:2px}
+.streak-badge{display:inline-block;background:rgba(255,255,255,0.15);color:#fff;font-size:11px;padding:2px 8px;border-radius:20px;margin-top:4px}
+.logout-btn{background:rgba(255,255,255,0.15);color:#fff;border:none;border-radius:8px;padding:6px 10px;font-size:11px;cursor:pointer;flex-shrink:0}
+
+/* Date nav */
+.date-nav{display:flex;align-items:center;gap:8px;padding:12px 16px;background:#fff;border-bottom:1px solid var(--border)}
+.date-nav button{width:36px;height:36px;border-radius:50%;border:1px solid var(--border);background:#fff;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.date-nav input[type=date]{flex:1;font-size:14px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:#fff;color:var(--text);text-align:center}
+.today-btn{padding:6px 12px;border:1px solid var(--green);border-radius:20px;background:var(--green-light);color:var(--green);font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap}
+
+/* Day banner */
+.day-banner{margin:12px 16px 0;padding:12px 14px;border-radius:var(--radius);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
+.day-banner.work{background:var(--green-light);border:1px solid var(--green)}
+.day-banner.saturday{background:var(--blue-light);border:1px solid var(--blue)}
+.day-banner.holiday{background:var(--orange-light);border:1px solid var(--orange)}
+.day-banner.festival{background:var(--purple-light);border:1px solid var(--purple)}
+.banner-info{display:flex;align-items:center;gap:10px}
+.banner-icon{font-size:22px}
+.banner-title{font-size:14px;font-weight:600;color:var(--text)}
+.banner-sub{font-size:11px;color:var(--text2);margin-top:1px}
+.type-btns{display:flex;gap:6px;flex-wrap:wrap}
+.type-btn{padding:5px 10px;border-radius:20px;border:1px solid var(--border);background:#fff;font-size:11px;font-weight:500;cursor:pointer;color:var(--text2)}
+.type-btn.active-work{background:var(--green);color:#fff;border-color:var(--green)}
+.type-btn.active-holiday{background:var(--orange);color:#fff;border-color:var(--orange)}
+.type-btn.active-festival{background:var(--purple);color:#fff;border-color:var(--purple)}
+
+.festival-input{margin:8px 16px 0;display:flex;align-items:center;gap:8px;background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:10px 14px}
+.festival-input input{flex:1;border:none;outline:none;font-size:14px;color:var(--text)}
+
+.progress-wrap{margin:12px 16px 0}
+.progress-label{display:flex;justify-content:space-between;font-size:12px;color:var(--text2);margin-bottom:5px}
+.progress-track{height:8px;background:var(--border);border-radius:4px;overflow:hidden}
+.progress-fill{height:100%;background:var(--green);border-radius:4px;transition:width 0.3s}
+
+.info-box{margin:8px 16px 0;padding:10px 14px;border-radius:var(--radius);font-size:12px;display:flex;gap:8px;align-items:flex-start}
+.info-box.holiday-box{background:var(--orange-light);border:1px solid var(--orange);color:#784212}
+.info-box.festival-box{background:var(--purple-light);border:1px solid var(--purple);color:#4A235A}
+.info-box b{display:block;margin-bottom:2px;font-size:13px}
+
+.section-hdr{margin:16px 16px 8px;display:flex;align-items:center;gap:8px}
+.section-hdr-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:var(--text2)}
+.section-hdr-line{flex:1;height:1px;background:var(--border)}
+.mkt-hdr .section-hdr-label{color:var(--orange)}
+.sat-hdr .section-hdr-label{color:var(--blue)}
+.misc-hdr .section-hdr-label{color:var(--orange)}
+
+.cards-list{padding:0 16px;display:flex;flex-direction:column;gap:10px}
+.cat-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:14px;box-shadow:var(--shadow)}
+.cat-card.done-card{border-color:var(--green);background:var(--green-light)}
+.cat-card.mkt-card{border-left:3px solid var(--orange)}
+.cat-card.mkt-card.done-card{border-left-color:var(--green)}
+.cat-card.sat-card{border-left:3px solid var(--blue)}
+.cat-card.sat-card.done-card{border-left-color:var(--green)}
+.cat-card.optional-card{border-left:3px solid var(--orange);opacity:0.85}
+.cat-card.optional-card.done-card{opacity:1;border-left-color:var(--green)}
+.cat-card.other-card{border-style:dashed}
+
+.card-top{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.card-title{font-size:14px;font-weight:600;color:var(--text);flex:1;line-height:1.3}
+.card-title.done-title{color:var(--green)}
+.badge{font-size:10px;padding:2px 7px;border-radius:20px;white-space:nowrap;flex-shrink:0}
+.badge-weekly{background:#DBEAFE;color:#1E40AF}
+.badge-optional{background:var(--orange-light);color:var(--orange)}
+.badge-sat{background:var(--blue-light);color:var(--blue)}
+.card-sub{font-size:11px;color:var(--text2);margin-top:-6px;margin-bottom:8px;line-height:1.4}
+
+.card-fields{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.field-full{grid-column:1/-1}
+.field-label{font-size:11px;color:var(--text2);margin-bottom:3px;font-weight:500}
+.done-toggle{display:flex;gap:8px}
+.toggle-btn{flex:1;padding:8px;border-radius:8px;border:1px solid var(--border);background:#fff;font-size:13px;font-weight:500;cursor:pointer;color:var(--text2)}
+.toggle-btn.yes-active{background:var(--green);color:#fff;border-color:var(--green)}
+.toggle-btn.no-active{background:#F1F5F9;color:var(--text2);border-color:var(--border)}
+.hrs-input{width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:14px;color:var(--text);background:#fff}
+.quality-stars{display:flex;gap:4px}
+.star-btn{flex:1;padding:7px 2px;border-radius:8px;border:1px solid var(--border);background:#fff;font-size:13px;font-weight:600;cursor:pointer;color:var(--text2);text-align:center}
+.star-btn.star-active{background:var(--green);color:#fff;border-color:var(--green)}
+.note-input{width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px;color:var(--text);background:#fff}
+
+.platform-chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
+.plat-chip{padding:6px 12px;border-radius:20px;border:1px solid var(--border);background:#fff;font-size:12px;font-weight:500;cursor:pointer;color:var(--text2);transition:all 0.15s}
+.plat-chip.chip-active{background:var(--blue-light);border-color:var(--blue);color:var(--blue)}
+.add-plat-row{display:flex;gap:8px;margin-top:4px}
+.add-plat-row input{flex:1;padding:7px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px;color:var(--text)}
+.add-btn-sm{padding:7px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg);font-size:13px;cursor:pointer;color:var(--text2)}
+
+.task-rows{display:flex;flex-direction:column;gap:6px;margin-bottom:8px}
+.task-row{display:flex;align-items:center;gap:8px}
+.task-row input[type=checkbox]{width:18px;height:18px;accent-color:var(--green);flex-shrink:0;cursor:pointer}
+.task-row input[type=text]{flex:1;padding:7px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px;color:var(--text)}
+.task-row input[type=number]{width:52px;padding:7px 6px;border:1px solid var(--border);border-radius:8px;font-size:13px;color:var(--text);text-align:center}
+.task-row .rm-btn{width:28px;height:28px;border-radius:50%;border:1px solid var(--border);background:#fff;font-size:14px;cursor:pointer;color:var(--text2);flex-shrink:0;display:flex;align-items:center;justify-content:center}
+.add-task-btn{width:100%;padding:9px;border:1px dashed var(--border);border-radius:8px;background:#fff;font-size:13px;color:var(--text2);cursor:pointer;text-align:center}
+
+.reflection-section{padding:0 16px;margin-top:16px}
+.reflection-label{font-size:12px;color:var(--text2);font-weight:600;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.4px}
+.reflection-input{width:100%;padding:12px;border:1px solid var(--border);border-radius:var(--radius);font-size:14px;color:var(--text);background:#fff;resize:vertical;min-height:80px;font-family:inherit}
+
+.save-section{padding:16px;display:flex;gap:10px}
+.save-btn{flex:1;padding:14px;border-radius:var(--radius);border:none;background:var(--dark);color:#fff;font-size:15px;font-weight:600;cursor:pointer;letter-spacing:0.3px}
+.save-btn:active{opacity:0.85}
+.ai-btn{flex:2;padding:14px;border-radius:var(--radius);border:1px solid var(--green);background:var(--green-light);color:var(--green);font-size:15px;font-weight:600;cursor:pointer}
+.ai-btn:active{opacity:0.85}
+.status-msg{text-align:center;font-size:13px;color:var(--green);padding:0 16px 8px;min-height:20px;font-weight:500}
+.ai-result{margin:0 16px 16px;padding:14px;background:#fff;border:1px solid var(--border);border-radius:var(--radius);font-size:13px;color:var(--text);line-height:1.7;white-space:pre-wrap}
+
+.tab-bar{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid var(--border);display:flex;z-index:100;box-shadow:0 -2px 8px rgba(0,0,0,0.06)}
+.tab-item{flex:1;padding:10px 4px 12px;display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;color:var(--text2);font-size:10px;font-weight:500;border:none;background:none}
+.tab-item.active-tab{color:var(--green)}
+.tab-item svg{width:22px;height:22px}
+
+.report-section{padding:16px;display:none}
+.report-section.active-sec{display:block}
+.week-nav{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.week-nav button{width:36px;height:36px;border-radius:50%;border:1px solid var(--border);background:#fff;font-size:16px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center}
+.week-label{flex:1;text-align:center;font-size:14px;font-weight:600;color:var(--text)}
+.this-week-btn{padding:6px 12px;border:1px solid var(--green);border-radius:20px;background:var(--green-light);color:var(--green);font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap}
+.week-table{width:100%;border-collapse:collapse;font-size:13px;border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow)}
+.week-table th{padding:9px 8px;text-align:left;font-weight:600;color:var(--text2);font-size:11px;text-transform:uppercase;letter-spacing:0.4px;background:#F8FAFC;border-bottom:1px solid var(--border)}
+.week-table td{padding:10px 8px;border-bottom:1px solid var(--border);vertical-align:top;background:#fff}
+.week-table tr:last-child td{border-bottom:none}
+.wt-day{font-weight:600;color:var(--text);font-size:13px}
+.wt-date{font-size:11px;color:var(--text2);margin-top:1px}
+.today-dot{display:inline-block;width:6px;height:6px;background:var(--green);border-radius:50%;margin-left:4px;vertical-align:middle}
+.chips-wrap{display:flex;flex-wrap:wrap;gap:4px}
+.chip{font-size:10px;padding:3px 8px;border-radius:20px;border:1px solid var(--border);background:#F8FAFC;color:var(--text2)}
+.chip.green-chip{background:#E8F8F0;color:var(--green);border-color:var(--green)}
+.chip.orange-chip{background:var(--orange-light);color:var(--orange)}
+.chip.purple-chip{background:var(--purple-light);color:var(--purple)}
+.chip.blue-chip{background:var(--blue-light);color:var(--blue)}
+.no-log-text{font-size:11px;color:var(--text2);font-style:italic}
+.tr-today td{background:#F0FDF8}
+.tr-holiday td{background:#FFF8F0}
+.tr-festival td{background:#FAF5FF}
+.tr-saturday td{background:#F0F7FF}
+
+.stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}
+.stat-card{background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:12px;box-shadow:var(--shadow)}
+.stat-card.mkt-stat{border-left:3px solid var(--orange)}
+.stat-name{font-size:12px;font-weight:600;color:var(--text);margin-bottom:4px;line-height:1.3}
+.stat-nums{font-size:11px;color:var(--text2);margin-bottom:5px}
+.stat-bar{height:5px;background:var(--border);border-radius:3px;overflow:hidden}
+.stat-fill{height:100%;background:var(--green);border-radius:3px}
+.report-note{font-size:11px;color:var(--text2);font-style:italic;margin-bottom:10px;padding:8px 10px;background:#F8FAFC;border-radius:8px;border:1px solid var(--border)}
+
+.streak-cards{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px}
+.streak-card{background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:10px 6px;text-align:center;box-shadow:var(--shadow)}
+.streak-num{font-size:22px;font-weight:700;color:var(--green)}
+.streak-lbl{font-size:10px;color:var(--text2);margin-top:2px}
+
+.report-selectors{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
+.report-selectors select,.report-selectors input{width:100%;padding:10px;border:1px solid var(--border);border-radius:8px;font-size:14px;color:var(--text);background:#fff}
+.report-header{font-size:16px;font-weight:700;color:var(--text);margin-bottom:4px}
+.report-subhdr{display:flex;align-items:center;gap:6px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text2);margin:14px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.report-subhdr.mkt{color:var(--orange)}
+.ai-report-btn{width:100%;padding:13px;border-radius:var(--radius);border:1px solid var(--green);background:var(--green-light);color:var(--green);font-size:14px;font-weight:600;cursor:pointer;margin-top:14px}
+.ai-report-btn:active{opacity:0.85}
+.loader{text-align:center;padding:20px;color:var(--text2);font-size:13px}
+#app-content{display:none}
+</style>
+</head>
+<body>
+
+<!-- LOGIN SCREEN -->
+<div id="login-screen">
+  <div class="login-box">
+    <div class="login-logo">⚖️</div>
+    <div class="login-title">Law Chambers Tracker</div>
+    <div class="login-sub">Sign in to access your productivity data</div>
+    <div class="login-field">
+      <label>Email</label>
+      <input type="email" id="login-email" placeholder="you@example.com" autocomplete="username">
+    </div>
+    <div class="login-field">
+      <label>Password</label>
+      <input type="password" id="login-password" placeholder="••••••••" autocomplete="current-password">
+    </div>
+    <button class="login-btn" id="login-btn">Sign In</button>
+    <div class="login-error" id="login-error"></div>
+  </div>
+</div>
+
+<div class="sync-status synced" id="sync-status" style="display:none">✓ Synced</div>
+
+<div id="app-content">
+<div class="app-header">
+  <div>
+    <h1>⚖️ Law Chambers — Productivity Tracker</h1>
+    <p id="hdr-sub">Mridul Jindal, Advocate</p>
+    <span class="streak-badge" id="streak-badge">🔥 0 day streak</span>
+  </div>
+  <button class="logout-btn" onclick="doLogout()">Logout</button>
+</div>
+
+<div id="sec-daily">
+  <div class="date-nav">
+    <button onclick="changeDay(-1)">‹</button>
+    <input type="date" id="log-date" onchange="loadDay()">
+    <button onclick="changeDay(1)">›</button>
+    <button class="today-btn" onclick="goToday()">Today</button>
+  </div>
+  <div class="day-banner work" id="day-banner">
+    <div class="banner-info">
+      <span class="banner-icon" id="banner-icon">💼</span>
+      <div>
+        <div class="banner-title" id="banner-title">Work Day</div>
+        <div class="banner-sub" id="banner-sub">Regular productivity tracking</div>
+      </div>
+    </div>
+    <div class="type-btns">
+      <button class="type-btn active-work" onclick="setDayType('work')">💼 Work</button>
+      <button class="type-btn" onclick="setDayType('holiday')">😴 Holiday</button>
+      <button class="type-btn" onclick="setDayType('festival')">🎉 Festival</button>
+    </div>
+  </div>
+  <div class="festival-input" id="festival-input" style="display:none">
+    <span>🎉</span>
+    <input type="text" id="festival-name" placeholder="Festival name (e.g. Diwali, Holi...)"
+      oninput="document.getElementById('festival-box-title').textContent='🎉 '+(this.value||'Festival Day')">
+  </div>
+  <div class="info-box holiday-box" id="holiday-box" style="display:none">
+    <span style="font-size:18px">😴</span>
+    <div><b>Holiday / Sunday</b>All tasks shown — mark whichever you manage to do. These count in your reports.</div>
+  </div>
+  <div class="info-box festival-box" id="festival-box" style="display:none">
+    <span style="font-size:18px">🎉</span>
+    <div><b id="festival-box-title">Festival Day</b>All tasks shown — mark what you complete. Counts in your reports.</div>
+  </div>
+  <div class="progress-wrap">
+    <div class="progress-label"><span id="prog-label">Daily completion</span><span id="prog-val">0%</span></div>
+    <div class="progress-track"><div class="progress-fill" id="prog-fill" style="width:0%"></div></div>
+  </div>
+  <div id="cat-grid"></div>
+  <div class="reflection-section">
+    <div class="reflection-label">Self-reflection / notes for the day</div>
+    <textarea class="reflection-input" id="reflection" placeholder="How was today? Key wins, blockers, what to improve..."></textarea>
+  </div>
+  <div class="save-section">
+    <button class="save-btn" onclick="saveDay()">💾 Save</button>
+    <button class="ai-btn" onclick="getDailyAI()">✨ AI Analysis</button>
+  </div>
+  <div class="status-msg" id="status-msg"></div>
+  <div class="ai-result" id="ai-daily" style="display:none"></div>
+</div>
+
+<div class="report-section" id="sec-weekly">
+  <div class="report-header">Weekly View</div>
+  <div class="week-nav" style="margin-top:12px">
+    <button onclick="shiftWeek(-1)">‹</button>
+    <span class="week-label" id="week-label">—</span>
+    <button onclick="shiftWeek(1)">›</button>
+    <button class="this-week-btn" onclick="goCurrentWeek()">This week</button>
+  </div>
+  <div style="overflow-x:auto">
+    <table class="week-table">
+      <thead><tr><th style="width:90px">Day</th><th>Tasks / Status</th></tr></thead>
+      <tbody id="week-tbody"></tbody>
+    </table>
+  </div>
+  <div id="week-stats"></div>
+  <button class="ai-report-btn" onclick="getWeeklyAI()">✨ Weekly AI Report</button>
+  <div class="ai-result" id="ai-weekly" style="display:none"></div>
+</div>
+
+<div class="report-section" id="sec-monthly">
+  <div class="report-header">Monthly Report</div>
+  <div class="report-selectors" style="margin-top:12px">
+    <select id="month-sel" onchange="buildMonthView()">
+      <option value="0">January</option><option value="1">February</option><option value="2">March</option>
+      <option value="3">April</option><option value="4">May</option><option value="5">June</option>
+      <option value="6">July</option><option value="7">August</option><option value="8">September</option>
+      <option value="9">October</option><option value="10">November</option><option value="11">December</option>
+    </select>
+    <input type="number" id="month-year" min="2024" max="2035" onchange="buildMonthView()">
+  </div>
+  <div id="month-stats"></div>
+  <button class="ai-report-btn" onclick="getMonthlyAI()">✨ Monthly AI Report</button>
+  <div class="ai-result" id="ai-monthly" style="display:none"></div>
+</div>
+
+<div class="report-section" id="sec-yearly">
+  <div class="report-header">Yearly Report</div>
+  <div class="report-selectors" style="margin-top:12px">
+    <input type="number" id="year-sel" min="2024" max="2035" onchange="buildYearView()" style="grid-column:1/-1">
+  </div>
+  <div class="streak-cards" id="yearly-streaks"></div>
+  <div id="year-stats"></div>
+  <button class="ai-report-btn" onclick="getYearlyAI()">✨ Yearly AI Report</button>
+  <div class="ai-result" id="ai-yearly" style="display:none"></div>
+</div>
+
+<div class="tab-bar">
+  <button class="tab-item active-tab" id="tab-daily" onclick="switchTab('daily')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+    Daily
+  </button>
+  <button class="tab-item" id="tab-weekly" onclick="switchTab('weekly')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/></svg>
+    Weekly
+  </button>
+  <button class="tab-item" id="tab-monthly" onclick="switchTab('monthly')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+    Monthly
+  </button>
+  <button class="tab-item" id="tab-yearly" onclick="switchTab('yearly')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+    Yearly
+  </button>
+</div>
+</div><!-- /app-content -->
+
+<script>
+// ═══════════ FIREBASE AUTH & SYNC LAYER ═══════════
+let CURRENT_USER = null;
+let ALL_DATA_CACHE = {};
+let DATA_LOADED = false;
+
+function showSyncStatus(state){
+  const el = document.getElementById('sync-status');
+  el.style.display = 'block';
+  el.className = 'sync-status ' + state;
+  el.textContent = state === 'synced' ? '✓ Synced' : state === 'syncing' ? '⏳ Syncing...' : '⚠ Sync error';
+  if(state === 'synced') setTimeout(()=>{ if(el.className.includes('synced')) el.style.display='none'; }, 2000);
+}
+
+async function doLogin(){
+  const email = document.getElementById('login-email').value.trim();
+  const password = document.getElementById('login-password').value;
+  const errEl = document.getElementById('login-error');
+  const btn = document.getElementById('login-btn');
+  errEl.textContent = '';
+  if(!email || !password){ errEl.textContent = 'Please enter email and password'; return; }
+  btn.disabled = true; btn.textContent = 'Signing in...';
+  try{
+    const { auth, signInWithEmailAndPassword } = window.__firebase;
+    await signInWithEmailAndPassword(auth, email, password);
+  } catch(e){
+    errEl.textContent = 'Invalid email or password. Please try again.';
+    btn.disabled = false; btn.textContent = 'Sign In';
+  }
+}
+
+function doLogout(){
+  const { auth, signOut } = window.__firebase;
+  signOut(auth);
+}
+
+document.getElementById('login-btn').addEventListener('click', doLogin);
+document.getElementById('login-password').addEventListener('keypress', (e)=>{ if(e.key==='Enter') doLogin(); });
+document.getElementById('login-email').addEventListener('keypress', (e)=>{ if(e.key==='Enter') doLogin(); });
+
+async function loadAllDataFromCloud(){
+  const { db, collection, getDocs } = window.__firebase;
+  showSyncStatus('syncing');
+  try{
+    const colRef = collection(db, 'users', CURRENT_USER.uid, 'days');
+    const snap = await getDocs(colRef);
+    ALL_DATA_CACHE = {};
+    snap.forEach(d => { ALL_DATA_CACHE[d.id] = d.data(); });
+    DATA_LOADED = true;
+    showSyncStatus('synced');
+  } catch(e){
+    console.error(e);
+    showSyncStatus('error');
+  }
+}
+
+async function saveDayToCloud(ds, obj){
+  const { db, doc, setDoc } = window.__firebase;
+  showSyncStatus('syncing');
+  try{
+    const docRef = doc(db, 'users', CURRENT_USER.uid, 'days', ds);
+    await setDoc(docRef, obj);
+    ALL_DATA_CACHE[ds] = obj;
+    showSyncStatus('synced');
+  } catch(e){
+    console.error(e);
+    showSyncStatus('error');
+  }
+}
+
+window.__firebase.onAuthStateChanged(window.__firebase.auth, async (user) => {
+  if(user){
+    CURRENT_USER = user;
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('app-content').style.display = 'block';
+    await loadAllDataFromCloud();
+    initTrackerUI();
+  } else {
+    CURRENT_USER = null;
+    DATA_LOADED = false;
+    document.getElementById('login-screen').style.display = 'flex';
+    document.getElementById('app-content').style.display = 'none';
+  }
+});
+
+// ═══════════ TRACKER APP LOGIC ═══════════
+const DEFAULT_PLATFORMS=['LinkedIn','Quora','Instagram','Facebook','YouTube','X (Twitter)'];
+const GROUPS=[
+  {id:'g1',label:null,mkt:false,cats:[
+    {id:'health',name:'Health',sub:'Exercise, diet, wellness',weekly:false}
+  ]},
+  {id:'g_mkt',label:'Marketing',mkt:true,cats:[
+    {id:'marketing_video',name:'Video / Blog',sub:'Content creation — aim 1 video + 1 blog/week',weekly:true},
+    {id:'mkt_growth',name:'Opportunity Finding, GMB & Social Media, Others',sub:'Lead gen · GMB · SEO · Any other marketing',weekly:false}
+  ]},
+  {id:'g2',label:null,mkt:false,cats:[
+    {id:'cases',name:'Law Office Work & Cases',sub:'Drafting · hearings · research · client calls',weekly:false},
+    {id:'newspaper',name:'Newspaper',sub:'Min. 30 min daily reading',weekly:false},
+    {id:'me_time',name:'Me Time',sub:'Skill dev · podcast · games · extra reading',weekly:false},
+    {id:'accounts',name:'Accounts',sub:'Billing · fees · bookkeeping',weekly:false},
+    {id:'aor_study',name:'AOR Study',sub:'Supreme Court AOR prep — weekly session',weekly:true},
+    {id:'todo',name:'To-Do List (Next Day)',sub:"Prepare tomorrow's task list before sleeping",weekly:false},
+    {id:'self_reflection',name:'Self-Reflection',sub:'Honest daily introspection',weekly:false}
+  ]}
+];
+const CATS=GROUPS.flatMap(g=>g.cats);
+const MKT_IDS=['marketing_video','mkt_growth'];
+let currentDayType='work';
+let currentWeekMonday=null;
+let uiInitialized = false;
+
+function todayStr(){const d=new Date();return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`}
+function dateToStr(d){return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`}
+function isSun(ds){return new Date(ds+'T12:00:00').getDay()===0}
+function isSat(ds){return new Date(ds+'T12:00:00').getDay()===6}
+function fmtDisplay(ds){return new Date(ds+'T12:00:00').toLocaleDateString('en-IN',{weekday:'long',day:'numeric',month:'long',year:'numeric'})}
+function getMondayOf(ds){const d=new Date(ds+'T12:00:00');const dow=d.getDay();d.setDate(d.getDate()-(dow===0?6:dow-1));return d}
+function getAllData(){ return ALL_DATA_CACHE; }
+function loadFromStorage(ds){ return ALL_DATA_CACHE[ds] || null; }
+
+function setDayTypeUI(type){
+  currentDayType=type;
+  const ds=document.getElementById('log-date').value;
+  const banner=document.getElementById('day-banner');
+  banner.className='day-banner';
+  document.querySelectorAll('.type-btn').forEach(b=>b.className='type-btn');
+  document.getElementById('holiday-box').style.display='none';
+  document.getElementById('festival-box').style.display='none';
+  document.getElementById('festival-input').style.display='none';
+  if(type==='work'){
+    if(isSat(ds)){banner.classList.add('saturday');document.getElementById('banner-icon').textContent='📅';document.getElementById('banner-title').textContent='Saturday — Content Day';document.getElementById('banner-sub').textContent='Post on all platforms today';}
+    else{banner.classList.add('work');document.getElementById('banner-icon').textContent='💼';document.getElementById('banner-title').textContent='Work Day';document.getElementById('banner-sub').textContent='Regular productivity tracking';}
+    document.querySelectorAll('.type-btn')[0].classList.add('active-work');
+  } else if(type==='holiday'){
+    banner.classList.add('holiday');document.getElementById('banner-icon').textContent='😴';document.getElementById('banner-title').textContent='Holiday / Day Off';document.getElementById('banner-sub').textContent='Mark what you manage to do';
+    document.querySelectorAll('.type-btn')[1].classList.add('active-holiday');
+    document.getElementById('holiday-box').style.display='flex';
+  } else {
+    banner.classList.add('festival');document.getElementById('banner-icon').textContent='🎉';document.getElementById('banner-title').textContent='Festival Day';document.getElementById('banner-sub').textContent='Mark what you complete';
+    document.querySelectorAll('.type-btn')[2].classList.add('active-festival');
+    document.getElementById('festival-input').style.display='flex';
+    document.getElementById('festival-box').style.display='flex';
+  }
+}
+function setDayType(type){setDayTypeUI(type);buildCatGrid(document.getElementById('log-date').value,null)}
+
+function buildCatGrid(ds,existing){
+  const grid=document.getElementById('cat-grid');grid.innerHTML='';
+  const sat=isSat(ds);
+  const isHF=currentDayType==='holiday'||currentDayType==='festival';
+
+  if(isHF){
+    grid.appendChild(makeSectionHdr('🌅 Miscellaneous & Leisure Activities','misc-hdr'));
+    const miscCard=document.createElement('div');miscCard.className='cat-card misc-card';
+    const savedMisc=existing?.miscTasks||[];
+    miscCard.innerHTML=`<div class="card-top"><div class="card-title">${currentDayType==='holiday'?'What did you do today?':'Celebration activities'}</div></div>
+    <div class="card-sub">${currentDayType==='holiday'?'Family time · errands · outings · rest':'Pooja · gatherings · celebrations · outings'}</div>
+    <div class="task-rows" id="misc-task-rows"></div>
+    <button class="add-task-btn" onclick="addMiscTaskRow()">+ Add activity</button>`;
+    const mw=document.createElement('div');mw.className='cards-list';mw.style.padding='0 16px';mw.appendChild(miscCard);grid.appendChild(mw);
+    const mtr=document.getElementById('misc-task-rows');
+    if(savedMisc.length)savedMisc.forEach(t=>addMiscTaskRowEl(mtr,t.text,t.done));else addMiscTaskRowEl(mtr,'',false);
+    grid.appendChild(makeSectionHdr('📋 Work Tasks — Mark whatever you manage to complete',''));
+  }
+
+  GROUPS.forEach(group=>{
+    if(group.mkt)grid.appendChild(makeSectionHdr('📢 Marketing','mkt-hdr'));
+    group.cats.forEach(cat=>{
+      const ex=existing?.cats?.[cat.id]||{};
+      const isMkt=MKT_IDS.includes(cat.id);
+      const card=document.createElement('div');
+      const isDone=ex.done||false;
+      card.className='cat-card'+(isDone?' done-card':'')+(isMkt?' mkt-card':'')+(isHF?' optional-card':'');
+      card.id='card-'+cat.id;
+
+      const wb=cat.weekly?'<span class="badge badge-weekly">Weekly</span>':'';
+      const optB=isHF?'<span class="badge badge-optional">Optional</span>':'';
+
+      card.innerHTML=`
+        <div class="card-top">
+          <div class="card-title${isDone?' done-title':''}" id="title-${cat.id}">${cat.name}</div>
+          ${wb}${optB}
+        </div>
+        <div class="card-sub">${cat.sub}</div>
+        <div class="card-fields">
+          <div>
+            <div class="field-label">Done</div>
+            <div class="done-toggle">
+              <button class="toggle-btn${isDone?' yes-active':''}" id="yes-${cat.id}" onclick="setDone('${cat.id}',true)">✓ Yes</button>
+              <button class="toggle-btn${!isDone?' no-active':''}" id="no-${cat.id}" onclick="setDone('${cat.id}',false)">✗ No</button>
+            </div>
+          </div>
+          <div>
+            <div class="field-label">Hours</div>
+            <input class="hrs-input" type="number" id="hrs-${cat.id}" min="0" max="12" step="0.5" placeholder="0" value="${ex.hrs||''}">
+          </div>
+          <div>
+            <div class="field-label">Quality (1–5)</div>
+            <div class="quality-stars" id="stars-${cat.id}">
+              ${[1,2,3,4,5].map(n=>`<button class="star-btn${(ex.quality||0)===n?' star-active':''}" onclick="setStar('${cat.id}',${n})">${n}</button>`).join('')}
+            </div>
+          </div>
+          <div class="field-full">
+            <div class="field-label">Note</div>
+            <input class="note-input" type="text" id="note-${cat.id}" placeholder="Quick note..." value="${ex.note||''}">
+          </div>
+        </div>`;
+      const cardWrap=document.createElement('div');cardWrap.className='cards-list';cardWrap.style.padding='0 16px';
+      cardWrap.appendChild(card);grid.appendChild(cardWrap);
+    });
+  });
+
+  if(sat){
+    grid.appendChild(makeSectionHdr('📅 Saturday Content Publishing','sat-hdr'));
+    const savedSat=existing?.saturdayContent||{};
+    const platforms=savedSat.platforms||DEFAULT_PLATFORMS.map(p=>({name:p,done:false}));
+    const satCard=document.createElement('div');
+    satCard.className='cat-card sat-card'+(platforms.some(p=>p.done)?' done-card':'');
+    satCard.id='card-saturday';
+    satCard.innerHTML=`<div class="card-top"><div class="card-title">Post on all platforms</div><span class="badge badge-sat">Every Saturday</span></div>
+    <div class="platform-chips" id="platform-chips"></div>
+    <div class="add-plat-row"><input type="text" id="new-plat" placeholder="Add platform..."><button class="add-btn-sm" onclick="addPlatform()">Add</button></div>
+    <div style="margin-top:10px"><div class="field-label">Topic posted about</div><input class="note-input" id="sat-note" placeholder="What did you post about?" value="${savedSat.note||''}"></div>`;
+    const sw=document.createElement('div');sw.className='cards-list';sw.style.padding='0 16px';sw.appendChild(satCard);grid.appendChild(sw);
+    const chips=document.getElementById('platform-chips');
+    platforms.forEach(p=>{const ch=makePlatChip(p.name,p.done);chips.appendChild(ch);});
+  }
+
+  grid.appendChild(makeSectionHdr('📌 Other Tasks',''));
+  const otherCard=document.createElement('div');otherCard.className='cat-card other-card';otherCard.id='card-other';
+  const otherEx=existing?.otherTasks||[];
+  otherCard.innerHTML=`<div class="card-top"><div class="card-title">Ad-hoc tasks for the day</div></div>
+  <div class="task-rows" id="other-task-rows"></div>
+  <button class="add-task-btn" onclick="addOtherTaskRow()">+ Add task</button>`;
+  const ow=document.createElement('div');ow.className='cards-list';ow.style.padding='0 16px';ow.appendChild(otherCard);grid.appendChild(ow);
+  const otr=document.getElementById('other-task-rows');
+  if(otherEx.length)otherEx.forEach(t=>addOtherTaskRowEl(otr,t.text,t.hrs||0,t.done));else addOtherTaskRowEl(otr,'',0,false);
+  updateProgress();
+}
+
+function makeSectionHdr(label,cls){
+  const wrap=document.createElement('div');wrap.className='section-hdr'+(cls?' '+cls:'');
+  wrap.innerHTML=`<div class="section-hdr-label">${label}</div><div class="section-hdr-line"></div>`;
+  return wrap;
+}
+function makePlatChip(name,done){
+  const ch=document.createElement('div');ch.className='plat-chip'+(done?' chip-active':'');ch.textContent=name;
+  ch.dataset.name=name;ch.onclick=()=>{ch.classList.toggle('chip-active');updateSatCard();};
+  return ch;
+}
+function addPlatform(){
+  const inp=document.getElementById('new-plat');const name=inp.value.trim();if(!name)return;
+  document.getElementById('platform-chips').appendChild(makePlatChip(name,false));
+  inp.value='';updateProgress();
+}
+function updateSatCard(){const anyDone=[...document.querySelectorAll('#platform-chips .chip-active')].length>0;document.getElementById('card-saturday')?.classList.toggle('done-card',anyDone);updateProgress();}
+function getSatContent(){const chips=[...document.querySelectorAll('#platform-chips .plat-chip')];return{platforms:chips.map(c=>({name:c.dataset.name,done:c.classList.contains('chip-active')})),note:document.getElementById('sat-note')?.value||''};}
+
+function addMiscTaskRowEl(container,text,done){
+  const row=document.createElement('div');row.className='task-row';
+  row.innerHTML=`<input type="checkbox" ${done?'checked':''}><input type="text" placeholder="Activity..." value="${text||''}"><button class="rm-btn" onclick="this.closest('.task-row').remove()">×</button>`;
+  container.appendChild(row);
+}
+function addMiscTaskRow(){addMiscTaskRowEl(document.getElementById('misc-task-rows'),'',false);}
+function getMiscTasks(){return[...document.querySelectorAll('#misc-task-rows .task-row')].map(r=>({text:r.querySelector('input[type=text]').value.trim(),done:r.querySelector('input[type=checkbox]').checked})).filter(t=>t.text);}
+
+function addOtherTaskRowEl(container,text,hrs,done){
+  const row=document.createElement('div');row.className='task-row';
+  row.innerHTML=`<input type="checkbox" ${done?'checked':''} onchange="updateProgress()"><input type="text" placeholder="Task..." value="${text||''}" oninput="updateProgress()"><input type="number" placeholder="h" min="0" max="12" step="0.5" value="${hrs||''}"><button class="rm-btn" onclick="this.closest('.task-row').remove();updateProgress()">×</button>`;
+  container.appendChild(row);
+}
+function addOtherTaskRow(){addOtherTaskRowEl(document.getElementById('other-task-rows'),'',0,false);}
+function getOtherTasks(){return[...document.querySelectorAll('#other-task-rows .task-row')].map(r=>({text:r.querySelector('input[type=text]').value.trim(),hrs:parseFloat(r.querySelectorAll('input[type=number]')[0]?.value)||0,done:r.querySelector('input[type=checkbox]').checked})).filter(t=>t.text);}
+
+function setDone(id,done){
+  document.getElementById('yes-'+id).className='toggle-btn'+(done?' yes-active':'');
+  document.getElementById('no-'+id).className='toggle-btn'+(!done?' no-active':'');
+  const card=document.getElementById('card-'+id);
+  card.classList.toggle('done-card',done);
+  document.getElementById('title-'+id).className='card-title'+(done?' done-title':'');
+  updateProgress();
+}
+function isDone(id){return document.getElementById('yes-'+id)?.classList.contains('yes-active')||false;}
+function setStar(id,val){document.getElementById('stars-'+id).querySelectorAll('.star-btn').forEach((b,i)=>b.classList.toggle('star-active',i+1===val));}
+function getStar(id){let q=0;document.getElementById('stars-'+id)?.querySelectorAll('.star-btn').forEach((b,i)=>{if(b.classList.contains('star-active'))q=i+1;});return q;}
+
+function updateProgress(){
+  const ds=document.getElementById('log-date').value;
+  const sat=isSat(ds);
+  const isHF=currentDayType==='holiday'||currentDayType==='festival';
+  const catDone=CATS.filter(c=>isDone(c.id)).length;
+  const otherDone=[...document.querySelectorAll('#other-task-rows input[type=checkbox]:checked')].length>0?1:0;
+  const satDone=sat&&[...document.querySelectorAll('#platform-chips .chip-active')].length>0?1:0;
+  if(isHF){
+    document.getElementById('prog-label').textContent='Tasks completed (optional)';
+    document.getElementById('prog-val').textContent=(catDone+otherDone)+' done';
+    document.getElementById('prog-fill').style.width=Math.min(Math.round(((catDone+otherDone)/CATS.length)*100),100)+'%';
+  } else {
+    const total=CATS.length+1+(sat?1:0);
+    const pct=Math.round(((catDone+otherDone+satDone)/total)*100);
+    document.getElementById('prog-label').textContent='Daily completion';
+    document.getElementById('prog-val').textContent=pct+'%';
+    document.getElementById('prog-fill').style.width=pct+'%';
+  }
+}
+
+function getDayObj(ds){
+  const cats={};
+  CATS.forEach(cat=>{cats[cat.id]={done:isDone(cat.id),hrs:parseFloat(document.getElementById('hrs-'+cat.id)?.value)||0,quality:getStar(cat.id),note:document.getElementById('note-'+cat.id)?.value||''};});
+  const isHF=currentDayType==='holiday'||currentDayType==='festival';
+  return{date:ds,dayType:currentDayType,festivalName:currentDayType==='festival'?(document.getElementById('festival-name')?.value||''):'',cats,otherTasks:getOtherTasks(),miscTasks:isHF?getMiscTasks():[],saturdayContent:isSat(ds)?getSatContent():null,reflection:document.getElementById('reflection').value};
+}
+
+async function saveDay(){
+  const ds=document.getElementById('log-date').value;if(!ds)return;
+  await saveDayToCloud(ds, getDayObj(ds));
+  showStatus('✓ Saved for '+new Date(ds+'T12:00:00').toLocaleDateString('en-IN',{day:'numeric',month:'short'}));
+  updateStreakBadge();
+}
+function showStatus(msg){const s=document.getElementById('status-msg');s.textContent=msg;setTimeout(()=>{if(s.textContent===msg)s.textContent=''},3000);}
+
+function loadDay(){
+  const ds=document.getElementById('log-date').value;
+  document.getElementById('hdr-sub').textContent=fmtDisplay(ds);
+  const existing=loadFromStorage(ds);
+  let type=existing?.dayType||(isSun(ds)?'holiday':'work');
+  currentDayType=type;setDayTypeUI(type);
+  if(type==='festival'&&existing?.festivalName){const fn=document.getElementById('festival-name');if(fn){fn.value=existing.festivalName;document.getElementById('festival-box-title').textContent='🎉 '+existing.festivalName;}}
+  else{const fn=document.getElementById('festival-name');if(fn)fn.value='';}
+  buildCatGrid(ds,existing);
+  document.getElementById('reflection').value=existing?.reflection||'';
+  document.getElementById('ai-daily').style.display='none';
+  document.getElementById('status-msg').textContent='';
+}
+function changeDay(delta){const d=new Date(document.getElementById('log-date').value+'T12:00:00');d.setDate(d.getDate()+delta);document.getElementById('log-date').value=dateToStr(d);loadDay();}
+function goToday(){document.getElementById('log-date').value=todayStr();loadDay();}
+
+function switchTab(tab){
+  document.querySelectorAll('.tab-item').forEach(t=>t.classList.remove('active-tab'));
+  document.getElementById('tab-'+tab).classList.add('active-tab');
+  document.getElementById('sec-daily').style.display=tab==='daily'?'block':'none';
+  ['weekly','monthly','yearly'].forEach(t=>{
+    const el=document.getElementById('sec-'+t);
+    el.style.display=t===tab?'block':'none';
+    el.classList.toggle('active-sec',t===tab);
+  });
+  if(tab==='weekly')goCurrentWeek();
+  if(tab==='monthly')buildMonthView();
+  if(tab==='yearly')buildYearView();
+}
+
+function goCurrentWeek(){currentWeekMonday=getMondayOf(todayStr());buildWeekView();}
+function shiftWeek(delta){if(!currentWeekMonday)currentWeekMonday=getMondayOf(todayStr());const d=new Date(currentWeekMonday);d.setDate(d.getDate()+delta*7);currentWeekMonday=d;buildWeekView();}
+function buildWeekView(){
+  if(!currentWeekMonday)currentWeekMonday=getMondayOf(todayStr());
+  const mon=currentWeekMonday;
+  const sun=new Date(mon);sun.setDate(mon.getDate()+6);
+  document.getElementById('week-label').textContent=mon.toLocaleDateString('en-IN',{day:'numeric',month:'short'})+' – '+sun.toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'});
+  const allData=getAllData();const today=todayStr();
+  const tbody=document.getElementById('week-tbody');tbody.innerHTML='';
+  const dayNames=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+  for(let i=0;i<7;i++){
+    const d=new Date(mon);d.setDate(mon.getDate()+i);
+    const ds=dateToStr(d);const dd=allData[ds];const isToday=ds===today;
+    const isSunday=d.getDay()===0;const isSaturday=d.getDay()===6;
+    const dtype=dd?.dayType||(isSunday?'holiday':'work');
+    const tr=document.createElement('tr');
+    if(isToday)tr.className='tr-today';
+    else if(dtype==='festival')tr.className='tr-festival';
+    else if(dtype==='holiday'||isSunday)tr.className='tr-holiday';
+    else if(isSaturday)tr.className='tr-saturday';
+    const tdDay=document.createElement('td');
+    tdDay.innerHTML=`<div class="wt-day">${dayNames[i]}${isToday?'<span class="today-dot"></span>':''}</div><div class="wt-date">${d.toLocaleDateString('en-IN',{day:'numeric',month:'short'})}</div>`;
+    tr.appendChild(tdDay);
+    const tdStatus=document.createElement('td');
+    if(!dd){tdStatus.innerHTML='<span class="no-log-text">No log</span>';}
+    else if(dtype==='holiday'){const misc=dd.miscTasks?.filter(t=>t.text).map(t=>t.text).join(', ')||'';tdStatus.innerHTML=`<div class="chips-wrap"><span class="chip orange-chip">😴 Holiday</span>${misc?`<span class="chip">${misc}</span>`:''}</div>`;}
+    else if(dtype==='festival'){tdStatus.innerHTML=`<div class="chips-wrap"><span class="chip purple-chip">🎉 ${dd.festivalName||'Festival'}</span></div>`;}
+    else{
+      const done=CATS.filter(c=>dd.cats?.[c.id]?.done);
+      const satPosts=isSaturday&&dd.saturdayContent?.platforms?.filter(p=>p.done).map(p=>p.name)||[];
+      const otherD=dd.otherTasks?.filter(t=>t.done&&t.text)||[];
+      let chips='';
+      if(!done.length&&!satPosts.length&&!otherD.length){chips='<span class="no-log-text">Logged, nothing done</span>';}
+      else{done.forEach(c=>{chips+=`<span class="chip green-chip">${c.name.split('(')[0].trim().substring(0,20)}</span>`;});if(satPosts.length)chips+=`<span class="chip blue-chip">📅 ${satPosts.slice(0,3).join(', ')}</span>`;otherD.forEach(t=>{chips+=`<span class="chip green-chip">${t.text.substring(0,20)}</span>`;});}
+      tdStatus.innerHTML=`<div class="chips-wrap">${chips}</div>`;
+    }
+    tr.style.cursor='pointer';tr.onclick=()=>{switchTab('daily');document.getElementById('log-date').value=ds;loadDay();};
+    tr.appendChild(tdStatus);tbody.appendChild(tr);
+  }
+  const{catTotals,loggedDays,holidays,festivals,satPosted,allOther}=collectData(dateToStr(mon),7);
+  document.getElementById('week-stats').innerHTML='';
+  buildStatsUI('week-stats',catTotals,loggedDays,holidays,festivals,satPosted,allOther);
+}
+
+function collectData(startDs,numDays){
+  const allData=getAllData();const catTotals={};CATS.forEach(c=>catTotals[c.id]={done:0,hrs:0,q:[]});
+  const allOther=[];let loggedDays=0,holidays=0,satPosted=0;const festivals=[];
+  for(let i=0;i<numDays;i++){
+    const d=new Date(startDs+'T12:00:00');d.setDate(d.getDate()+i);const ds=dateToStr(d);const dd=allData[ds];
+    if(!dd)continue;loggedDays++;
+    const dtype=dd.dayType||'work';
+    if(dtype==='holiday')holidays++;else if(dtype==='festival')festivals.push(dd.festivalName||'Festival');
+    if(dd.cats)CATS.forEach(c=>{const cd=dd.cats[c.id];if(cd&&cd.done){catTotals[c.id].done++;catTotals[c.id].hrs+=cd.hrs||0;if(cd.quality)catTotals[c.id].q.push(cd.quality);}});
+    if(dd.otherTasks)dd.otherTasks.forEach(t=>{const ex=allOther.find(o=>o.text===t.text);if(ex){ex.hrs+=t.hrs;if(t.done)ex.done=true;}else allOther.push({...t});});
+    if(dd.saturdayContent?.platforms?.some(p=>p.done))satPosted++;
+  }
+  return{catTotals,loggedDays,holidays,festivals,satPosted,allOther};
+}
+
+function buildStatsUI(elId,totals,loggedDays,holidays,festivals,satPosted,otherSummary){
+  const el=document.getElementById(elId);
+  const denom=Math.max(loggedDays,1);
+  let html='';
+  if(loggedDays===0){el.innerHTML='<div class="report-note">No data logged yet for this period.</div>';return;}
+  html+=`<div class="report-note">Based on ${loggedDays} logged day${loggedDays!==1?'s':''}`;
+  if(holidays||festivals?.length||satPosted){
+    html+=' — ';
+    if(satPosted)html+=`📅 ${satPosted} Sat posts`;
+    if(holidays)html+=(satPosted?' · ':'')+`😴 ${holidays} holiday${holidays>1?'s':''}`;
+    if(festivals?.length)html+=` · 🎉 ${[...new Set(festivals)].join(', ')}`;
+  }
+  html+='</div>';
+  html+='<div class="report-subhdr mkt"><span>📢 Marketing</span></div><div class="stats-grid">';
+  CATS.filter(c=>MKT_IDS.includes(c.id)).forEach(cat=>{html+=statCardHTML(cat,totals,denom,true);});
+  html+='</div><div class="report-subhdr"><span>📋 General</span></div><div class="stats-grid">';
+  CATS.filter(c=>!MKT_IDS.includes(c.id)).forEach(cat=>{html+=statCardHTML(cat,totals,denom,false);});
+  html+='</div>';
+  el.innerHTML=html;
+}
+
+function statCardHTML(cat,totals,days,mkt){
+  const t=totals[cat.id]||{done:0,hrs:0,q:[]};
+  const avgQ=t.q.length?Math.round((t.q.reduce((a,b)=>a+b,0)/t.q.length)*10)/10:0;
+  const pct=Math.round((t.done/Math.max(days,1))*100);
+  const dn=cat.name.length>22?cat.name.substring(0,22)+'…':cat.name;
+  return`<div class="stat-card${mkt?' mkt-stat':''}">
+    <div class="stat-name">${dn}</div>
+    <div class="stat-nums">${t.done}/${days} days · ${t.hrs.toFixed(1)}h${avgQ?' · ⭐'+avgQ:''}</div>
+    <div class="stat-bar"><div class="stat-fill" style="width:${pct}%"></div></div>
+  </div>`;
+}
+
+function buildMonthView(){
+  const month=parseInt(document.getElementById('month-sel').value);
+  const year=parseInt(document.getElementById('month-year').value);
+  const dim=new Date(year,month+1,0).getDate();
+  const startDs=`${year}-${String(month+1).padStart(2,'0')}-01`;
+  const{catTotals,loggedDays,holidays,festivals,satPosted,allOther}=collectData(startDs,dim);
+  document.getElementById('month-stats').innerHTML='';
+  buildStatsUI('month-stats',catTotals,loggedDays,holidays,festivals,satPosted,allOther);
+}
+
+function buildYearView(){
+  const year=parseInt(document.getElementById('year-sel').value);
+  const allData=getAllData();const catTotals={};CATS.forEach(c=>catTotals[c.id]={done:0,hrs:0,q:[]});
+  let loggedDays=0,holidays=0,satPosted=0;const festivals=[];const allOther=[];
+  Object.keys(allData).filter(ds=>ds.startsWith(year+'-')).forEach(ds=>{
+    loggedDays++;const dd=allData[ds];
+    if(dd.dayType==='holiday')holidays++;else if(dd.dayType==='festival')festivals.push(dd.festivalName||'Festival');
+    if(dd.cats)CATS.forEach(c=>{const cd=dd.cats[c.id];if(cd&&cd.done){catTotals[c.id].done++;catTotals[c.id].hrs+=cd.hrs||0;}});
+    if(dd.saturdayContent?.platforms?.some(p=>p.done))satPosted++;
+  });
+  document.getElementById('yearly-streaks').innerHTML=`
+    <div class="streak-card"><div class="streak-num">${loggedDays}</div><div class="streak-lbl">Days logged</div></div>
+    <div class="streak-card"><div class="streak-num">${loggedDays-holidays-festivals.length}</div><div class="streak-lbl">Work days</div></div>
+    <div class="streak-card"><div class="streak-num">${satPosted}</div><div class="streak-lbl">Sat posts</div></div>
+    <div class="streak-card"><div class="streak-num">${holidays+festivals.length}</div><div class="streak-lbl">Off days</div></div>`;
+  document.getElementById('year-stats').innerHTML='';
+  buildStatsUI('year-stats',catTotals,loggedDays,holidays,festivals,satPosted,allOther);
+}
+
+function updateStreakBadge(){
+  const allData=getAllData();let streak=0;let cd=new Date();
+  for(let i=0;i<365;i++){const ds=dateToStr(cd);if(allData[ds])streak++;else if(i>0)break;cd.setDate(cd.getDate()-1);}
+  document.getElementById('streak-badge').textContent='🔥 '+streak+' day streak';
+}
+
+async function callAI(prompt){
+  const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:800,system:'You are a productivity coach for Mridul Jindal, advocate at Law Chambers of Mridul Jindal, Delhi NCR. Give honest, specific, actionable analysis. Plain text only, no markdown, keep it concise for mobile reading.',messages:[{role:'user',content:prompt}]})});
+  const d=await res.json();return d.content?.[0]?.text||'Could not generate analysis.';
+}
+
+async function getDailyAI(){
+  const ds=document.getElementById('log-date').value;if(!ds)return;
+  const obj=getDayObj(ds);
+  const box=document.getElementById('ai-daily');box.style.display='block';box.innerHTML='<div class="loader">Analysing your day...</div>';
+  const catSum=CATS.map(c=>{const cd=obj.cats[c.id];return`${c.name}: ${cd.done?'Done':'Not done'}, ${cd.hrs}h, q${cd.quality}/5`;}).join('\n');
+  const context=obj.dayType==='holiday'?'SUNDAY/HOLIDAY':obj.dayType==='festival'?`FESTIVAL ${obj.festivalName||''}`:'WORK DAY';
+  const prompt=`${context} — ${fmtDisplay(ds)}\n${catSum}\nOther: ${obj.otherTasks.map(t=>t.text).join(', ')||'None'}\nReflection: ${obj.reflection}\n\nBrief daily analysis: what went well, what was missed, one key action for tomorrow.`;
+  box.textContent=await callAI(prompt);
+}
+
+async function getWeeklyAI(){
+  if(!currentWeekMonday)return;
+  const allData=getAllData();
+  const summaries=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map((day,i)=>{
+    const d=new Date(currentWeekMonday);d.setDate(currentWeekMonday.getDate()+i);const ds=dateToStr(d);const dd=allData[ds];
+    if(!dd)return`${day}: No log`;const dtype=dd.dayType||'work';
+    if(dtype==='holiday')return`${day}: Holiday`;if(dtype==='festival')return`${day}: Festival ${dd.festivalName||''}`;
+    const done=CATS.filter(c=>dd.cats?.[c.id]?.done).map(c=>c.name).join(', ')||'None';
+    return`${day}: ${done}`;
+  });
+  const box=document.getElementById('ai-weekly');box.style.display='block';box.innerHTML='<div class="loader">Generating weekly report...</div>';
+  box.textContent=await callAI(`Weekly log:\n${summaries.join('\n')}\n\nWeekly report: overall score, Saturday content compliance, marketing, AOR Study, 3 recommendations.`);
+}
+
+async function getMonthlyAI(){
+  const month=parseInt(document.getElementById('month-sel').value),year=parseInt(document.getElementById('month-year').value);
+  const allData=getAllData();const dim=new Date(year,month+1,0).getDate();
+  const catCounts={};CATS.forEach(c=>catCounts[c.id]=0);let logged=0;
+  for(let d=1;d<=dim;d++){const ds=`${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;const dd=allData[ds];if(dd){logged++;if(dd.cats)CATS.forEach(c=>{if(dd.cats[c.id]?.done)catCounts[c.id]++;});}}
+  const mName=['January','February','March','April','May','June','July','August','September','October','November','December'][month];
+  const summary=CATS.map(c=>`${c.name}: ${catCounts[c.id]}/${logged}`).join('\n');
+  const box=document.getElementById('ai-monthly');box.style.display='block';box.innerHTML='<div class="loader">Generating monthly report...</div>';
+  box.textContent=await callAI(`Monthly ${mName} ${year}. ${logged} days logged.\n${summary}\n\nMonthly report: productivity score, marketing, AOR, law work, health, 3 recommendations.`);
+}
+
+async function getYearlyAI(){
+  buildYearView();const year=parseInt(document.getElementById('year-sel').value);
+  const allData=getAllData();const catTotals={};CATS.forEach(c=>catTotals[c.id]={done:0,hrs:0});let loggedDays=0;
+  Object.keys(allData).filter(ds=>ds.startsWith(year+'-')).forEach(ds=>{loggedDays++;const dd=allData[ds];if(dd.cats)CATS.forEach(c=>{const cd=dd.cats[c.id];if(cd&&cd.done){catTotals[c.id].done++;catTotals[c.id].hrs+=cd.hrs||0;}});});
+  const summary=CATS.map(c=>`${c.name}: ${catTotals[c.id].done}/${loggedDays} days`).join('\n');
+  const box=document.getElementById('ai-yearly');box.style.display='block';box.innerHTML='<div class="loader">Generating yearly report...</div>';
+  box.textContent=await callAI(`Yearly ${year}. ${loggedDays} days logged.\n${summary}\n\nYearly review: overall rating, marketing, law practice, AOR prep, health, 5 priorities for Law Chambers of Mridul Jindal.`);
+}
+
+function initTrackerUI(){
+  if(uiInitialized) { loadDay(); return; }
+  uiInitialized = true;
+  const _n=new Date();
+  document.getElementById('month-sel').value=_n.getMonth();
+  document.getElementById('month-year').value=_n.getFullYear();
+  document.getElementById('year-sel').value=_n.getFullYear();
+  document.getElementById('log-date').value=todayStr();
+  document.getElementById('sec-daily').style.display='block';
+  ['weekly','monthly','yearly'].forEach(t=>document.getElementById('sec-'+t).style.display='none');
+  loadDay();
+  updateStreakBadge();
+}
+
+// expose functions globally for inline onclick handlers
+window.changeDay=changeDay; window.goToday=goToday; window.setDayType=setDayType;
+window.saveDay=saveDay; window.getDailyAI=getDailyAI; window.switchTab=switchTab;
+window.shiftWeek=shiftWeek; window.goCurrentWeek=goCurrentWeek; window.getWeeklyAI=getWeeklyAI;
+window.buildMonthView=buildMonthView; window.getMonthlyAI=getMonthlyAI;
+window.buildYearView=buildYearView; window.getYearlyAI=getYearlyAI;
+window.addMiscTaskRow=addMiscTaskRow; window.addOtherTaskRow=addOtherTaskRow;
+window.addPlatform=addPlatform; window.setDone=setDone; window.setStar=setStar;
+window.doLogout=doLogout; window.loadDay=loadDay;
+</script>
+</body>
+</html>
