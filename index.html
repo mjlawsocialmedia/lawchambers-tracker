@@ -64,6 +64,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .app-header{background:var(--dark);padding:16px 16px 12px;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,0.2);display:flex;justify-content:space-between;align-items:flex-start}
 .app-header h1{color:#fff;font-size:15px;font-weight:600;letter-spacing:0.3px}
 .app-header p{color:rgba(255,255,255,0.6);font-size:12px;margin-top:2px}
+.quote-banner{background:linear-gradient(135deg,var(--dark),#2D5F8A);padding:14px 16px;margin:0}
+.quote-icon{font-size:18px;margin-bottom:4px;display:block}
+.quote-text{font-size:13px;font-weight:500;color:#fff;line-height:1.5;font-style:italic}
+.quote-date{font-size:10px;color:rgba(255,255,255,0.55);margin-top:6px}
 .streak-badge{display:inline-block;background:rgba(255,255,255,0.15);color:#fff;font-size:11px;padding:2px 8px;border-radius:20px;margin-top:4px}
 .logout-btn{background:rgba(255,255,255,0.15);color:#fff;border:none;border-radius:8px;padding:6px 10px;font-size:11px;cursor:pointer;flex-shrink:0}
 
@@ -257,6 +261,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   <button class="logout-btn" onclick="openExportModal()" style="margin-right:6px">Export</button>
   <button class="logout-btn" onclick="openImportModal()" style="margin-right:6px">Import</button>
   <button class="logout-btn" onclick="doLogout()">Logout</button>
+</div>
+
+<div class="quote-banner">
+  <span class="quote-icon">⚖️</span>
+  <div class="quote-text" id="daily-quote-text">Loading today's thought...</div>
+  <div class="quote-date" id="daily-quote-date"></div>
 </div>
 
 <div id="sec-daily">
@@ -567,6 +577,46 @@ async function saveDayToCloud(ds, obj){
 }
 
 // ═══════════ TRACKER APP LOGIC ═══════════
+const DAILY_QUOTES=[
+  'Discipline is choosing between what you want now and what you want most.',
+  'A lawyer who knows the law but not the client is a librarian, not an advocate.',
+  'Every brief you write today is the reputation you build for tomorrow.',
+  'Consistency in small habits compounds into mastery over years.',
+  'The court remembers preparation. The client remembers how you made them feel.',
+  'Five years of practice is not a milestone, it is a foundation for the next fifty.',
+  'Show up for the boring tasks. Greatness lives in the unglamorous repetition.',
+  'Your name on a door means nothing if your name is not known for diligence.',
+  'The best advocates are not the loudest, but the most prepared.',
+  'A single Saturday post can find one client. A consistent one builds a practice.',
+  'Study like the exam is tomorrow. Practice like the client is watching.',
+  'Health is not separate from your career. It is the engine that drives it.',
+  'Every case you decline to rush is a reputation you choose to protect.',
+  'The chamber you build today is the legacy you hand down tomorrow.',
+  'Read the newspaper like a lawyer reads a brief, looking for what others missed.',
+  'Self-reflection is the cheapest, most powerful tool in your practice.',
+  'AOR is not a test of memory but a test of consistency over months.',
+  'A well-organized to-do list is a quiet form of self-respect.',
+  'Clients remember response time as much as legal skill.',
+  'The law evolves daily. So should your understanding of it.',
+  'Marketing for a lawyer is not vanity, it is access for those who need you.',
+  'Rest with intention. Holidays recharge the mind that argues for others.',
+  'A festival missed at the office is a family memory gained at home.',
+  'Your competitors sleep. Build the habit that they will not.',
+  'The strongest legal argument is built one disciplined hour at a time.',
+  'Be the advocate today that your future self will thank you for.',
+  'Patience with process. Urgency with action. That is the practice of law.',
+  'Every client interaction is a brief you write in real time.',
+  'Quiet consistency beats loud ambition every single time.',
+  'The five-year mark is proof you survived. The next five is proof you will thrive.'
+];
+function getDayOfYear(d){const start=new Date(d.getFullYear(),0,0);const diff=d-start;return Math.floor(diff/86400000);}
+function showDailyQuote(){
+  const today=new Date();
+  const idx=getDayOfYear(today)%DAILY_QUOTES.length;
+  document.getElementById('daily-quote-text').textContent=DAILY_QUOTES[idx];
+  document.getElementById('daily-quote-date').textContent=today.toLocaleDateString('en-IN',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+}
+
 const DEFAULT_PLATFORMS=['LinkedIn','Quora','Instagram','Facebook','YouTube','X (Twitter)'];
 const GROUPS=[
   {id:'g1',label:null,mkt:false,cats:[
@@ -1009,6 +1059,7 @@ async function getYearlyAI(){
 }
 
 function initTrackerUI(){
+  showDailyQuote();
   if(uiInitialized) { loadDay(); return; }
   uiInitialized = true;
   const _n=new Date();
