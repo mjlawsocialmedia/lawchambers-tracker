@@ -852,14 +852,31 @@ async function saveDay(){
 }
 function showStatus(msg){const s=document.getElementById('status-msg');s.textContent=msg;setTimeout(()=>{if(s.textContent===msg)s.textContent=''},3000);}
 
+function getCarryOverTasks(ds){
+  // Look at yesterday's saved data and pull forward any unfinished "Other Tasks"
+  const d=new Date(ds+'T12:00:00');
+  d.setDate(d.getDate()-1);
+  const yesterdayStr=dateToStr(d);
+  const yData=loadFromStorage(yesterdayStr);
+  if(!yData||!yData.otherTasks)return[];
+  return yData.otherTasks.filter(t=>t.text&&!t.done).map(t=>({text:t.text,hrs:0,done:false}));
+}
 function loadDay(){
   const ds=document.getElementById('log-date').value;
   document.getElementById('hdr-sub').textContent=fmtDisplay(ds);
-  const existing=loadFromStorage(ds);
+  let existing=loadFromStorage(ds);
   let type=existing?.dayType||(isSun(ds)?'holiday':'work');
   currentDayType=type;setDayTypeUI(type);
   if(type==='festival'&&existing?.festivalName){const fn=document.getElementById('festival-name');if(fn){fn.value=existing.festivalName;document.getElementById('festival-box-title').textContent='🎉 '+existing.festivalName;}}
   else{const fn=document.getElementById('festival-name');if(fn)fn.value='';}
+  // Carry over unfinished tasks from yesterday only if today has no saved otherTasks yet
+  if(!existing||!existing.otherTasks||existing.otherTasks.length===0){
+    const carried=getCarryOverTasks(ds);
+    if(carried.length){
+      existing=existing?{...existing}:{};
+      existing.otherTasks=carried;
+    }
+  }
   buildCatGrid(ds,existing);
   document.getElementById('reflection').value=existing?.reflection||'';
   document.getElementById('ai-daily').style.display='none';
