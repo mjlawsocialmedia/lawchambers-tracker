@@ -737,9 +737,21 @@ function buildCatGrid(ds,existing){
             <div class="field-label">Note</div>
             <input class="note-input" type="text" id="note-${cat.id}" placeholder="Quick note..." value="${ex.note||''}">
           </div>
+          <div class="field-full">
+            <div class="field-label">Specific tasks (optional)</div>
+            <div class="task-rows" id="subtasks-${cat.id}"></div>
+            <button class="add-task-btn" onclick="addSubtask('${cat.id}')" style="margin-top:6px;padding:6px;font-size:11px">+ Add task to this category</button>
+          </div>
         </div>`;
       const cardWrap=document.createElement('div');cardWrap.className='cards-list';cardWrap.style.padding='0 16px';
       cardWrap.appendChild(card);grid.appendChild(cardWrap);
+      const subList=document.getElementById('subtasks-'+cat.id);
+      const subItems=ex.subtasks||[];
+      if(subItems.length){
+        subItems.forEach(s=>addSubtaskRow(cat.id,subList,s.text,s.done,s.carried));
+      }
+      // refresh done-state from subtasks if any exist
+      if(subItems.length)recalcCategoryDone(cat.id);
     });
   });
 
@@ -788,6 +800,37 @@ function addPlatform(){
 }
 function updateSatCard(){const anyDone=[...document.querySelectorAll('#platform-chips .chip-active')].length>0;document.getElementById('card-saturday')?.classList.toggle('done-card',anyDone);updateProgress();}
 function getSatContent(){const chips=[...document.querySelectorAll('#platform-chips .plat-chip')];return{platforms:chips.map(c=>({name:c.dataset.name,done:c.classList.contains('chip-active')})),note:document.getElementById('sat-note')?.value||''};}
+
+function addSubtaskRow(catId,list,text,done,carried){
+  const row=document.createElement('div');row.className='task-row';
+  const badge=carried?'<span class="carry-badge">Carried</span>':'';
+  row.innerHTML=`<input type="checkbox" ${done?'checked':''} onchange="recalcCategoryDone('${catId}')"><input type="text" placeholder="Specific task..." value="${text||''}" oninput="recalcCategoryDone('${catId}')">${badge}<button class="rm-btn" onclick="this.closest('.task-row').remove();recalcCategoryDone('${catId}')">×</button>`;
+  list.appendChild(row);
+}
+function addSubtask(catId){addSubtaskRow(catId,document.getElementById('subtasks-'+catId),'',false,false);recalcCategoryDone(catId);}
+function getSubtasks(catId){
+  const list=document.getElementById('subtasks-'+catId);
+  if(!list)return[];
+  return Array.from(list.querySelectorAll('.task-row')).map(r=>({
+    text:r.querySelector('input[type=text]').value.trim(),
+    done:r.querySelector('input[type=checkbox]').checked
+  })).filter(t=>t.text);
+}
+function recalcCategoryDone(catId){
+  const subs=getSubtasks(catId);
+  if(subs.length>0){
+    const allDone=subs.every(s=>s.done);
+    setDone(catId,allDone);
+  }
+  updateProgress();
+}
+function getCarryOverSubtasks(catId,ds){
+  const d=new Date(ds+'T12:00:00');d.setDate(d.getDate()-1);
+  const yStr=dateToStr(d);
+  const yData=loadFromStorage(yStr);
+  if(!yData||!yData.cats||!yData.cats[catId]||!yData.cats[catId].subtasks)return[];
+  return yData.cats[catId].subtasks.filter(s=>s.text&&!s.done).map(s=>({text:s.text,done:false,carried:true}));
+}
 
 function addMiscTaskRowEl(container,text,done){
   const row=document.createElement('div');row.className='task-row';
@@ -839,7 +882,7 @@ function updateProgress(){
 
 function getDayObj(ds){
   const cats={};
-  CATS.forEach(cat=>{cats[cat.id]={done:isDone(cat.id),hrs:parseFloat(document.getElementById('hrs-'+cat.id)?.value)||0,quality:getStar(cat.id),note:document.getElementById('note-'+cat.id)?.value||''};});
+  CATS.forEach(cat=>{cats[cat.id]={done:isDone(cat.id),hrs:parseFloat(document.getElementById('hrs-'+cat.id)?.value)||0,quality:getStar(cat.id),note:document.getElementById('note-'+cat.id)?.value||'',subtasks:getSubtasks(cat.id)};});
   const isHF=currentDayType==='holiday'||currentDayType==='festival';
   return{date:ds,dayType:currentDayType,festivalName:currentDayType==='festival'?(document.getElementById('festival-name')?.value||''):'',cats,otherTasks:getOtherTasks(),miscTasks:isHF?getMiscTasks():[],saturdayContent:isSat(ds)?getSatContent():null,reflection:document.getElementById('reflection').value};
 }
@@ -877,6 +920,19 @@ function loadDay(){
       existing.otherTasks=carried;
     }
   }
+  // Carry over unfinished per-category subtasks if today has none saved yet for that category
+  CATS.forEach(cat=>{
+    const hasOwnSubtasks=existing?.cats?.[cat.id]?.subtasks?.length>0;
+    if(!hasOwnSubtasks){
+      const carriedSubs=getCarryOverSubtasks(cat.id,ds);
+      if(carriedSubs.length){
+        existing=existing?{...existing}:{};
+        existing.cats=existing.cats?{...existing.cats}:{};
+        existing.cats[cat.id]=existing.cats[cat.id]?{...existing.cats[cat.id]}:{};
+        existing.cats[cat.id].subtasks=carriedSubs;
+      }
+    }
+  });
   buildCatGrid(ds,existing);
   document.getElementById('reflection').value=existing?.reflection||'';
   document.getElementById('ai-daily').style.display='none';
