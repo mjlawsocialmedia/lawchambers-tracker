@@ -335,6 +335,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     </table>
   </div>
   <div id="week-stats"></div>
+  <div class="reflection-section" style="padding:0;margin-top:1rem">
+    <div class="reflection-label">Weekly reflection</div>
+    <textarea class="reflection-input" id="weekly-reflection" placeholder="How was this week overall? Key wins, patterns, what to change next week..."></textarea>
+    <button class="save-btn" style="margin-top:8px" onclick="saveWeeklyReflection()">💾 Save Weekly Reflection</button>
+    <div class="status-msg" id="weekly-reflection-status"></div>
+  </div>
   <button class="ai-report-btn" onclick="getWeeklyAI()">✨ Weekly AI Report</button>
   <div class="ai-result" id="ai-weekly" style="display:none"></div>
 </div>
@@ -351,6 +357,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     <input type="number" id="month-year" min="2024" max="2035" onchange="buildMonthView()">
   </div>
   <div id="month-stats"></div>
+  <div class="reflection-section" style="padding:0;margin-top:1rem">
+    <div class="reflection-label">Monthly reflection</div>
+    <textarea class="reflection-input" id="monthly-reflection" placeholder="How was this month? Major wins, what stalled, priorities for next month..."></textarea>
+    <button class="save-btn" style="margin-top:8px" onclick="saveMonthlyReflection()">💾 Save Monthly Reflection</button>
+    <div class="status-msg" id="monthly-reflection-status"></div>
+  </div>
   <button class="ai-report-btn" onclick="getMonthlyAI()">✨ Monthly AI Report</button>
   <div class="ai-result" id="ai-monthly" style="display:none"></div>
 </div>
@@ -362,6 +374,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   </div>
   <div class="streak-cards" id="yearly-streaks"></div>
   <div id="year-stats"></div>
+  <div class="reflection-section" style="padding:0;margin-top:1rem">
+    <div class="reflection-label">Yearly reflection</div>
+    <textarea class="reflection-input" id="yearly-reflection" placeholder="How was this year for the chambers? Biggest milestones, what to carry into next year..."></textarea>
+    <button class="save-btn" style="margin-top:8px" onclick="saveYearlyReflection()">💾 Save Yearly Reflection</button>
+    <div class="status-msg" id="yearly-reflection-status"></div>
+  </div>
   <button class="ai-report-btn" onclick="getYearlyAI()">✨ Yearly AI Report</button>
   <div class="ai-result" id="ai-yearly" style="display:none"></div>
 </div>
@@ -530,6 +548,7 @@ function initFirebaseAuthListener(){
       document.getElementById('login-screen').style.display = 'none';
       document.getElementById('app-content').style.display = 'block';
       await loadAllDataFromCloud();
+      await loadReflectionsFromCloud();
       initTrackerUI();
     } else {
       CURRENT_USER = null;
@@ -574,6 +593,75 @@ async function saveDayToCloud(ds, obj){
     console.error(e);
     showSyncStatus('error');
   }
+}
+
+// ═══════════ REFLECTIONS (weekly/monthly/yearly) ═══════════
+let REFLECTIONS_CACHE = {};
+async function loadReflectionsFromCloud(){
+  const { db, collection, getDocs } = window.__firebase;
+  try{
+    const colRef = collection(db, 'users', CURRENT_USER.uid, 'meta');
+    const snap = await getDocs(colRef);
+    REFLECTIONS_CACHE = {};
+    snap.forEach(d => { REFLECTIONS_CACHE[d.id] = d.data(); });
+  } catch(e){ console.error(e); }
+}
+async function saveReflectionToCloud(metaId, text){
+  const { db, doc, setDoc } = window.__firebase;
+  showSyncStatus('syncing');
+  try{
+    const docRef = doc(db, 'users', CURRENT_USER.uid, 'meta', metaId);
+    await setDoc(docRef, { text, updatedAt: new Date().toISOString() });
+    REFLECTIONS_CACHE[metaId] = { text };
+    showSyncStatus('synced');
+  } catch(e){
+    console.error(e);
+    showSyncStatus('error');
+  }
+}
+function getWeeklyReflectionId(){ return 'weekly_' + dateToStr(currentWeekMonday); }
+function getMonthlyReflectionId(){
+  const m = parseInt(document.getElementById('month-sel').value)+1;
+  const y = document.getElementById('month-year').value;
+  return 'monthly_' + y + '-' + String(m).padStart(2,'0');
+}
+function getYearlyReflectionId(){ return 'yearly_' + document.getElementById('year-sel').value; }
+
+async function saveWeeklyReflection(){
+  const id = getWeeklyReflectionId();
+  const text = document.getElementById('weekly-reflection').value;
+  await saveReflectionToCloud(id, text);
+  showSavedMsg('weekly-reflection-status');
+}
+async function saveMonthlyReflection(){
+  const id = getMonthlyReflectionId();
+  const text = document.getElementById('monthly-reflection').value;
+  await saveReflectionToCloud(id, text);
+  showSavedMsg('monthly-reflection-status');
+}
+async function saveYearlyReflection(){
+  const id = getYearlyReflectionId();
+  const text = document.getElementById('yearly-reflection').value;
+  await saveReflectionToCloud(id, text);
+  showSavedMsg('yearly-reflection-status');
+}
+function showSavedMsg(elId){
+  const el=document.getElementById(elId);
+  el.textContent='✓ Saved';
+  el.style.color='#1D9E75';
+  setTimeout(()=>{ if(el.textContent==='✓ Saved') el.textContent=''; },2500);
+}
+function loadWeeklyReflectionUI(){
+  const id=getWeeklyReflectionId();
+  document.getElementById('weekly-reflection').value=(REFLECTIONS_CACHE[id]&&REFLECTIONS_CACHE[id].text)||'';
+}
+function loadMonthlyReflectionUI(){
+  const id=getMonthlyReflectionId();
+  document.getElementById('monthly-reflection').value=(REFLECTIONS_CACHE[id]&&REFLECTIONS_CACHE[id].text)||'';
+}
+function loadYearlyReflectionUI(){
+  const id=getYearlyReflectionId();
+  document.getElementById('yearly-reflection').value=(REFLECTIONS_CACHE[id]&&REFLECTIONS_CACHE[id].text)||'';
 }
 
 // ═══════════ TRACKER APP LOGIC ═══════════
@@ -955,8 +1043,8 @@ function switchTab(tab){
   if(tab==='yearly')buildYearView();
 }
 
-function goCurrentWeek(){currentWeekMonday=getMondayOf(todayStr());buildWeekView();}
-function shiftWeek(delta){if(!currentWeekMonday)currentWeekMonday=getMondayOf(todayStr());const d=new Date(currentWeekMonday);d.setDate(d.getDate()+delta*7);currentWeekMonday=d;buildWeekView();}
+function goCurrentWeek(){currentWeekMonday=getMondayOf(todayStr());buildWeekView();loadWeeklyReflectionUI();}
+function shiftWeek(delta){if(!currentWeekMonday)currentWeekMonday=getMondayOf(todayStr());const d=new Date(currentWeekMonday);d.setDate(d.getDate()+delta*7);currentWeekMonday=d;buildWeekView();loadWeeklyReflectionUI();}
 function buildWeekView(){
   if(!currentWeekMonday)currentWeekMonday=getMondayOf(todayStr());
   const mon=currentWeekMonday;
@@ -1055,6 +1143,7 @@ function buildMonthView(){
   const{catTotals,loggedDays,holidays,festivals,satPosted,allOther}=collectData(startDs,dim);
   document.getElementById('month-stats').innerHTML='';
   buildStatsUI('month-stats',catTotals,loggedDays,holidays,festivals,satPosted,allOther);
+  loadMonthlyReflectionUI();
 }
 
 function buildYearView(){
@@ -1067,6 +1156,7 @@ function buildYearView(){
     if(dd.cats)CATS.forEach(c=>{const cd=dd.cats[c.id];if(cd&&cd.done){catTotals[c.id].done++;catTotals[c.id].hrs+=cd.hrs||0;}});
     if(dd.saturdayContent?.platforms?.some(p=>p.done))satPosted++;
   });
+  loadYearlyReflectionUI();
   document.getElementById('yearly-streaks').innerHTML=`
     <div class="streak-card"><div class="streak-num">${loggedDays}</div><div class="streak-lbl">Days logged</div></div>
     <div class="streak-card"><div class="streak-num">${loggedDays-holidays-festivals.length}</div><div class="streak-lbl">Work days</div></div>
@@ -1157,6 +1247,7 @@ window.addPlatform=addPlatform; window.setDone=setDone; window.setStar=setStar;
 window.doLogout=doLogout; window.loadDay=loadDay;
 window.openImportModal=openImportModal; window.closeImportModal=closeImportModal; window.runImport=runImport;
 window.openExportModal=openExportModal; window.closeExportModal=closeExportModal; window.copyExportData=copyExportData;
+window.saveWeeklyReflection=saveWeeklyReflection; window.saveMonthlyReflection=saveMonthlyReflection; window.saveYearlyReflection=saveYearlyReflection;
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
